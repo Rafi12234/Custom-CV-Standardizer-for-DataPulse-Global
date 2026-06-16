@@ -46,7 +46,7 @@ def clean_text(raw_text: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
 
     # 5 & 6. Per-line cleanup
-    cleaned_lines  = []
+    cleaned_lines = []
     for line in text.split("\n"):
         line = line.rstrip()                            # strip trailing whitespace
         line = re.sub(r"[ \t]{2,}", " ", line)         # collapse inline spaces/tabs
