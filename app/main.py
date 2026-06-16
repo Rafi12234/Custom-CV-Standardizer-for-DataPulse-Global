@@ -28,7 +28,7 @@ def process_folder(
     status_callback: Optional[Callable[[str], None]] = None,
 ) -> dict:
     """
-    Process all PDF CVs inside folder_path.
+    Process all PDF  CVs inside folder_path.
 
     For each PDF:
       1. Upload PDF directly to Gemini File API.
