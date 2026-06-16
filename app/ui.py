@@ -5,7 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, font, messagebox, scrolledtext, ttk
 
-from app.file_helper import open_output_folder
+from app.file_helper  import open_output_folder
 from app.main import process_folder
 
 _BG         = "#f0f4f8"
