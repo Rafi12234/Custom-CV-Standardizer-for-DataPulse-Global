@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import List
 
-from app.config import OUTPUT_FOLDER
+from app.config  import OUTPUT_FOLDER
 
 
 def get_pdf_files(folder_path: str) -> List[Path]:
