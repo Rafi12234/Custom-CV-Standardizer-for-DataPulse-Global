@@ -8,7 +8,7 @@ import fitz  # PyMuPDF
 from app.config import MIN_TEXT_LENGTH
 
 
-def extract_text(pdf_path: Path) -> str:
+def extract_text(pdf_path:  Path) -> str:
     """
     Extract all selectable text from a PDF file.
 
