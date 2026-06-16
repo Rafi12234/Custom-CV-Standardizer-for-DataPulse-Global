@@ -1,0 +1,4 @@
+pymupdf
+reportlab
+google-genai
+python-dotenv
