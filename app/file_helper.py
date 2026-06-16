@@ -10,7 +10,7 @@ from app.config  import OUTPUT_FOLDER
 
 def get_pdf_files(folder_path: str) -> List[Path]:
     """
-    Return all .pdf files inside folder_path sorted by file name.
+    Return all .pdf files  inside folder_path sorted by file name.
     """
     folder = Path(folder_path)
 
@@ -18,7 +18,7 @@ def get_pdf_files(folder_path: str) -> List[Path]:
         raise FileNotFoundError(f"Folder not found: {folder_path}")
 
     if not folder.is_dir():
-        raise NotADirectoryError(f"Path is not a folder: {folder_path}")
+        raise  NotADirectoryError(f"Path is not a folder: {folder_path}")
 
     pdf_files = sorted(
         [f for f in folder.iterdir() if f.is_file() and f.suffix.lower() == ".pdf"],
