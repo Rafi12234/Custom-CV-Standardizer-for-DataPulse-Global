@@ -20,7 +20,7 @@ def extract_text(pdf_path: Path) -> str:
     Returns
     -------
     str
-        The full extracted text from every page.
+        The full extracted text from every  page.
 
     Raises
     ------
