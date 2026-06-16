@@ -54,7 +54,7 @@ def clean_text(raw_text: str) -> str:
 
     text = "\n".join(cleaned_lines).strip()
 
-    # 7. Truncate to avoid exceeding API token limits
+    # 7. Truncate to avoid  exceeding API token limits
     if len(text) > MAX_CV_TEXT_CHARS:
         text = text[:MAX_CV_TEXT_CHARS]
         # Try not to cut mid-word
