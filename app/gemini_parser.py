@@ -24,43 +24,67 @@ Analyze the entire CV visually and extract ONLY the following information:
 1. Candidate full name
 2. Email address
 3. Educational qualifications (all degrees, institutions, results, years)
-4. Skills (all skills listed anywhere in the CV)
+4. Skills — STRICT DEFINITION (read carefully below)
 5. Job experiences — STRICT DEFINITION (read carefully below)
-6. Achievements (any awards, honours, recognitions, or notable achievements mentioned)
+6. Achievements (any awards, honours, recognitions, or notable achievements)
 7. Certificates (any certifications or certificates mentioned)
 8. Trainings (any training programs, workshops, or courses mentioned)
 9. Publications (any published papers, articles, books, or research mentioned)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STRICT DEFINITION OF "Skills" (item 4 above):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ONLY extract skills that the candidate has EXPLICITLY listed in a
+dedicated Skills section, Skills list, Technical Skills section,
+Core Competencies section, or any clearly labelled skill listing.
+
+DO NOT include:
+- Skills you infer or guess from the candidate's job descriptions
+- Skills you infer from project descriptions
+- Skills mentioned only inside work experience details
+- Skills mentioned only inside education descriptions
+- Any skill that is NOT directly written by the candidate as a skill
+
+If the CV has no dedicated skills section, return empty list [] for skills.
+Each skill must be a SHORT string — maximum 4 words per skill.
+Do not include sentences or phrases as skills.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STRICT DEFINITION OF "Job Experience" (item 5 above):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-INCLUDE in experiences ONLY if ALL of these are true:
-  - The candidate worked FOR an external organization, company, or employer
-  - It was a formal employment, internship, or paid/credited role
-  - There is a real company name OR a real organization name as the employer
-  - Examples of VALID entries:
-      * Software Engineer at Google
-      * Intern at ABC Ltd
-      * Junior Developer at XYZ Company
-      * Research Assistant at University Lab (if paid/formal role)
-      * Executive at a registered club or society (e.g. "President, AUST Robotics Club")
+INCLUDE in experiences if ANY of these are true:
+  - Formal employment at a real company or organization
+  - Internship at a real company or organization
+  - Contract or freelance work FOR a named external client or company
+  - Executive or leadership role at a registered club, society, or startup
+  - Work listed under sections named: "Work Experience", "Experience",
+    "Professional Experience", "Employment", "Career History",
+    "Recent Works", "Recent Experience", "Projects (Professional)"
+    — as long as it involves a real external organization or employer
 
-DO NOT INCLUDE in experiences:
-  - Personal projects (solo projects the candidate built themselves)
-  - Academic projects (university coursework assignments)
-  - Club projects (projects done as a member activity, not as an executive role)
-  - Hackathon projects (even if they won prizes)
-  - Open source contributions
-  - Freelance work with no named client/employer
-  - Any entry where the "company" would be "Project", "Personal", "Self",
-    "Freelance", "N/A", or blank
-  - Any entry where the candidate is described as "sole developer",
-    "developer (implied)", or similar self-assigned titles with no employer
+ALSO INCLUDE "Recent Works" section entries IF:
+  - They involve work done for a real client, company, or organization
+  - They are professional engagements even if short-term or freelance
+  - A company name, client name, or organization name is identifiable
 
-If an entry does not clearly meet the INCLUDE criteria above,
-DO NOT put it in experiences. Leave it out entirely.
-Projects and hackathons belong in achievements or extra_sections — not here.
+DO NOT INCLUDE:
+  - Personal projects (solo projects with no external client/employer)
+  - Personal websites or portfolio projects
+  - Academic coursework or university assignments
+  - Club activity projects (where candidate is a regular member, not executive)
+  - Hackathon entries (unless they resulted in a formal role)
+  - Any project where company would be "Personal", "Self", "Project",
+    "N/A", "None", "Freelance" with no named client, or left blank
+  - Open source contributions with no named employer
+
+For each valid experience entry extract:
+  - company   : the real company, organization, startup, or client name
+  - position  : the candidate's exact job title or role as written in CV
+  - duration  : the time period as written in CV
+  - details   : the job responsibilities and achievements exactly as
+                written in the CV — copy them faithfully, do not summarise
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -68,12 +92,11 @@ General Rules:
 - Return ONLY valid JSON. No markdown. No code fences. No extra explanation.
 - Do NOT wrap the response inside ```json or ``` blocks.
 - Do NOT invent or fabricate any information.
-- If a field is not present in the CV, return an empty list [] for that field.
-- For skills return a flat list of strings.
+- If a field is not present in the CV, return an empty list [] for list fields.
+- For skills return a flat list of short strings.
 - For educational_qualifications return a list of objects.
 - For experiences return a list of objects.
 - For achievements, certificates, trainings, publications return a list of strings.
-  Each string should be one complete entry as it appears in the CV.
 - Do NOT use "Not Found" for list fields — use empty list [] instead.
 - candidate_name and email are strings — use "Not Found" if absent.
 
@@ -266,24 +289,19 @@ def _call_gemini_with_retry(pdf_path: Path) -> str:
     )
 
 
-# ── Post-processing filter ────────────────────────────────────────────────────
+# ── Post-processing filters ───────────────────────────────────────────────────
 
-# Company names that indicate a non-job entry — filtered out after parsing
 _INVALID_COMPANY_NAMES = {
     "project", "personal", "personal project", "self", "self-employed",
     "freelance", "n/a", "na", "none", "own", "independent", "solo",
     "hackathon", "open source", "academic", "coursework", "assignment",
     "club project", "university project", "college project",
+    "personal website", "portfolio", "side project",
 }
 
 
 def _filter_experiences(experiences: list) -> list:
-    """
-    Remove any experience entry where the company name is clearly
-    not a real employer (personal projects, hackathons, club projects, etc.).
-
-    This acts as a safety net in case Gemini ignores the prompt rules.
-    """
+    """Remove non-job entries as a safety net after Gemini parsing."""
     filtered = []
     for exp in experiences:
         if not isinstance(exp, dict):
@@ -292,31 +310,58 @@ def _filter_experiences(experiences: list) -> list:
         company  = str(exp.get("company",  "")).strip().lower()
         position = str(exp.get("position", "")).strip().lower()
 
-        # Skip if company is in the invalid set
         if company in _INVALID_COMPANY_NAMES:
             print(
-                f"  [filter] Removed non-job entry: "
-                f"'{exp.get('position', '')}' at '{exp.get('company', '')}'"
+                f"  [filter] Removed non-job: "
+                f"'{exp.get('position','')}' at '{exp.get('company','')}'"
             )
             continue
 
-        # Skip if position contains "implied" — Gemini's own signal for inferred roles
         if "implied" in position:
             print(
-                f"  [filter] Removed implied role: "
-                f"'{exp.get('position', '')}' at '{exp.get('company', '')}'"
+                f"  [filter] Removed implied role: '{exp.get('position','')}'"
             )
             continue
 
-        # Skip if company is empty or "not found"
         if not company or company == "not found":
             print(
                 f"  [filter] Removed entry with no company: "
-                f"'{exp.get('position', '')}'"
+                f"'{exp.get('position','')}'"
             )
             continue
 
         filtered.append(exp)
+
+    return filtered
+
+
+def _filter_skills(skills: list) -> list:
+    """
+    Clean the skills list:
+    - Remove empty entries
+    - Remove entries that are full sentences (more than 5 words)
+    - Strip extra whitespace
+    - Remove duplicates while preserving order
+    """
+    seen     = set()
+    filtered = []
+
+    for skill in skills:
+        if not isinstance(skill, str):
+            continue
+        s = skill.strip()
+        if not s:
+            continue
+        # Skip sentence-like entries (more than 5 words)
+        if len(s.split()) > 5:
+            print(f"  [filter] Removed sentence-like skill: '{s[:60]}'")
+            continue
+        # Deduplicate case-insensitively
+        key = s.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        filtered.append(s)
 
     return filtered
 
@@ -342,7 +387,8 @@ def parse_cv(pdf_path: Path) -> dict:
     parsed.setdefault("trainings",      [])
     parsed.setdefault("publications",   [])
 
-    # Apply post-processing filter as safety net
+    # Post-processing filters
     parsed["experiences"] = _filter_experiences(parsed["experiences"])
+    parsed["skills"]      = _filter_skills(parsed["skills"])
 
     return parsed
