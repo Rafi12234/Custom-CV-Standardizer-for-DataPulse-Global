@@ -87,6 +87,7 @@ SKILLS_BULLET_MAX = 25
 
 LINE_H = 3.5 * mm
 
+
 # Skill tag geometry
 TAG_H          = 6.5 * mm    # height of each tag box
 TAG_RADIUS     = 3.0 * mm    # corner radius for rounded rectangle
@@ -211,49 +212,49 @@ class SectionHeadingSpacer(Flowable):
 
 class SkillTagsFlowable(Flowable):
     """
-    Renders a list of skill names as individual rounded-rectangle tags,
-    wrapping across multiple rows to fit the available column width.
+    Renders skill names as individual rounded-rectangle tags that wrap
+    across rows to fit within the left column width.
 
-    Layout matches the reference image:
-      ┌──────────┐  ┌───────────┐  ┌──────────┐
-      │  Node.js │  │ Express.js│  │  React.js│
-      └──────────┘  └───────────┘  └──────────┘
-      ┌─────────┐  ┌────────┐  ┌──────┐  ┌────────┐
-      │  Koa.js │  │ Next.js│  │  PHP │  │  MySQL │
-      └─────────┘  └────────┘  └──────┘  └────────┘
-
-    Tags wrap naturally — shorter skill names fit more per row,
-    longer names fewer per row. No rigid column grid.
+    Each tag width is determined by its text content so tags never overflow.
+    The available_width is strictly respected — no tag or row ever exceeds it.
     """
 
     def __init__(self, skills: list, available_width: float):
         super().__init__()
         self.skills          = skills
         self.available_width = available_width
-        self._rows           = []    # computed in wrap()
+        self._rows: list     = []
         self.width           = 0
         self.height          = 0
 
-    def _measure_tag_width(self, skill: str, canv) -> float:
-        """Measure the pixel width of one tag including padding."""
-        text_w = canv.stringWidth(skill, "Helvetica", TAG_FONT_SIZE)
+    @staticmethod
+    def _tag_width(skill: str) -> float:
+        """
+        Calculate tag width from character count using a fixed-width estimate.
+        Helvetica at 7.5pt ≈ 4.2pt per character average.
+        We use a conservative estimate to prevent overflow.
+        """
+        char_w = 4.2   # pt per character at 7.5pt Helvetica
+        text_w = len(skill) * char_w
         return text_w + 2 * TAG_PAD_X
 
-    def _compute_rows(self, canv) -> list[list[tuple[str, float]]]:
+    def _compute_rows(self) -> list:
         """
-        Pack skills into rows so that no row exceeds available_width.
-        Each row is a list of (skill_text, tag_width) tuples.
+        Pack skills into rows. Each row total width must not exceed
+        available_width. Uses conservative char-width estimation.
         """
+        # Hard cap: no single tag can be wider than available_width
+        max_tag_w = self.available_width
+
         rows    = []
         cur_row = []
         cur_w   = 0.0
 
         for skill in self.skills:
-            tw = self._measure_tag_width(skill, canv)
+            tw  = min(self._tag_width(skill), max_tag_w)
             gap = TAG_H_GAP if cur_row else 0.0
 
             if cur_row and cur_w + gap + tw > self.available_width:
-                # Start new row
                 rows.append(cur_row)
                 cur_row = [(skill, tw)]
                 cur_w   = tw
@@ -267,20 +268,12 @@ class SkillTagsFlowable(Flowable):
         return rows
 
     def wrap(self, available_width, available_height):
+        # Strictly use the frame's available width — never exceed it
         self.available_width = available_width
         self.width           = available_width
+        self._rows           = self._compute_rows()
 
-        # We need a canvas to measure text widths.
-        # During wrap() the canvas is not always available, so we use
-        # a temporary canvas for measurement only.
-        import io
-        from reportlab.pdfgen.canvas import Canvas as _Canvas
-        buf  = io.BytesIO()
-        tmp  = _Canvas(buf, pagesize=A4)
-        self._rows = self._compute_rows(tmp)
-        tmp.save()
-
-        n_rows     = len(self._rows)
+        n_rows      = len(self._rows)
         self.height = (
             n_rows * TAG_H
             + max(0, n_rows - 1) * TAG_LINE_GAP
@@ -290,19 +283,25 @@ class SkillTagsFlowable(Flowable):
     def draw(self):
         canv = self.canv
 
-        # Recompute rows with the real canvas for accurate text widths
-        self._rows = self._compute_rows(canv)
+        # Recompute with final available_width for accurate placement
+        self._rows = self._compute_rows()
 
         canv.saveState()
 
-        y = self.height   # start from top (ReportLab draws bottom-up)
+        # ReportLab y=0 is bottom of flowable, y=self.height is top
+        y = self.height
 
         for row in self._rows:
             y -= TAG_H
             x  = 0.0
 
             for skill, tw in row:
-                # Draw rounded rectangle background
+                # Clamp tag width to available space remaining in row
+                tw = min(tw, self.available_width - x)
+                if tw <= 0:
+                    break
+
+                # Rounded rectangle background
                 canv.setFillColor(SKILL_TAG_BG)
                 canv.setStrokeColor(SKILL_TAG_BORDER)
                 canv.setLineWidth(0.5)
@@ -313,18 +312,24 @@ class SkillTagsFlowable(Flowable):
                     stroke=1, fill=1,
                 )
 
-                # Draw skill text centred vertically in the tag
+                # Skill text — clip to tag width
+                text_y = y + (TAG_H - TAG_FONT_SIZE * 0.75) / 2
                 canv.setFillColor(SKILL_TAG_TEXT)
                 canv.setFont("Helvetica", TAG_FONT_SIZE)
-                text_y = y + (TAG_H - TAG_FONT_SIZE * 0.7) / 2
+
+                # Save clip region so text never bleeds outside the tag
+                canv.saveState()
+                p = canv.beginPath()
+                p.rect(x, y, tw, TAG_H)
+                canv.clipPath(p, stroke=0, fill=0)
                 canv.drawString(x + TAG_PAD_X, text_y, skill)
+                canv.restoreState()
 
                 x += tw + TAG_H_GAP
 
             y -= TAG_LINE_GAP
 
         canv.restoreState()
-
 
 # ── Height estimator ──────────────────────────────────────────────────────────
 
